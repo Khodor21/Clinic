@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Patient = require("../models/Patient");
-const Message = require("../models/Message");
+const Message = require("../models/Blog");
 const Payments = require("../models/Payment");
 const Time = require("../models/Time");
 
@@ -68,30 +68,6 @@ router.get("/income", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).send("Failed to fetch income payments");
-  }
-});
-
-router.post("/message", async (req, res) => {
-  try {
-    const postMessage = new Message({
-      name: req.body.name,
-      phone: req.body.phone,
-    });
-    const savedMessage = await postMessage.save();
-    res.json(savedMessage);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Server error");
-  }
-});
-
-router.get("/getMessage", async (req, res) => {
-  try {
-    const messages = await Message.find({}, "name phone");
-    res.json(messages);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error retrieving messages");
   }
 });
 
@@ -242,7 +218,3 @@ router.get("/getmonthpatients", async (req, res) => {
 });
 
 module.exports = router;
-
-{
-  /*  */
-}

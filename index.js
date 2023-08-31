@@ -1,23 +1,18 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const http = require("http");
-const { Server } = require("socket.io");
-const Message = require("./models/Message");
-const patient = require("./router/patients");
-const messageRouter = require("./router/messages");
 const path = require("path");
 const multer = require("multer");
-const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
+const bcrypt = require("bcrypt");
 const saltRounds = 10;
 require("dotenv").config();
 const session = require("express-session");
 const admin = require("./router/admin");
+const patient = require("./router/patients");
+const Blog = require("./models/Blog");
 
 const app = express();
-const server = http.createServer(app); // Move this line here
-
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -32,41 +27,10 @@ app.use(
     },
   })
 );
+
 app.use("/api/patients", patient);
-app.use("/api/", messageRouter);
 app.use("/api/", admin);
 
-const blogSchema = new mongoose.Schema({
-  title: {
-    type: String,
-  },
-  introduction: {
-    type: String,
-  },
-  mainContentOne: {
-    type: String,
-  },
-  mainContentTwo: {
-    type: String,
-  },
-  mainContentThree: {
-    type: String,
-  },
-  conclusion: {
-    type: String,
-  },
-  name: {
-    type: String,
-  },
-  datePublished: {
-    type: Date,
-  },
-  filePath: {
-    type: String,
-  },
-});
-
-const Blog = mongoose.model("Blog", blogSchema);
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -164,9 +128,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-console.log("Fixed admin username from env:", process.env.FIXED_ADMIN_USERNAME);
-console.log("Fixed admin password from env:", process.env.FIXED_ADMIN_PASSWORD);
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "./uploads");
@@ -247,50 +208,6 @@ app.get("/api/images", async (req, res) => {
   }
 });
 
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Authorization"],
-  },
-});
-
-io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`);
-
-  socket.on("join", (room) => {
-    socket.join(room);
-    console.log(`User with ID: ${socket.id} joined room: ${room}`);
-  });
-
-  socket.on("send_message", async (data) => {
-    try {
-      // Save the message to MongoDB
-      const newMessage = new Message({
-        room: data.room,
-        author: data.author,
-        message: data.message,
-        time: data.time,
-      });
-
-      await newMessage.save();
-
-      // Emit the newly created message object instead of the original data
-      io.to(data.room).emit("receive_message", newMessage);
-    } catch (error) {
-      console.error("Error saving message:", error);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("User Disconnected", socket.id);
-  });
-});
-
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -301,46 +218,9 @@ mongoose
     console.log("Connected to MongoDB");
     const PORT = process.env.PORT || 8002;
 
-    app.get("/messages", async (req, res) => {
-      const { room } = req.query;
+    // Add any remaining routes you need here
 
-      console.log("Received request to fetch messages for room:", room);
-
-      try {
-        const messages = await Message.find({ room });
-        console.log("Found messages:", messages);
-        res.status(200).json({ messages });
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        res.status(500).json({ error: "Failed to fetch messages" });
-      }
-    });
-
-    app.post("/messages", async (req, res) => {
-      const { room, author, message, time } = req.body;
-
-      try {
-        const newMessage = new Message({
-          room: room,
-          author: author,
-          message: message,
-          time: time,
-        });
-
-        await newMessage.save();
-
-        req.io.to(room).emit("receive_message", newMessage);
-
-        res
-          .status(201)
-          .json({ message: "Message sent and stored successfully" });
-      } catch (error) {
-        console.error("Error saving message:", error);
-        res.status(500).json({ error: "Failed to send and store the message" });
-      }
-    });
-
-    server.listen(PORT, () => {
+    app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   })
